@@ -29,6 +29,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.BitSet;
@@ -77,22 +78,24 @@ public class Visualizer {
         return sw.toString();
     }
 
-    public static void toDot(String graphName, PrintWriter w, PMap<?, ?>... m) {
+    static void toDot(String graphName, PrintWriter w, PMap<?, ?>... m) {
         GraphEdges ges = GraphEdges.toGraphEdges(m);
         ges.toDot(graphName, w);
         w.flush();
     }
 
-    public static void toSVG(String graphName, PMap<?, ?>... m) throws IOException {
+    static void toSVG(String graphName, PMap<?, ?>... m) throws IOException {
         toDot(graphName, new PrintWriter(new FileOutputStream(graphName + ".dot")), m);
-        Dot.dotToSvg(new FileInputStream("x.dot"),
+        Dot.dotToSvg(new FileInputStream(graphName + ".dot"),
                      new FileOutputStream(graphName + ".svg"));
     }
 
-    public static void visualize(PMap<?, ?>... m) throws IOException {
-        toSVG("x", m);
-        Dot.dotToSvg(new FileInputStream("x.dot"),
-                     new FileOutputStream("x.svg"));
+    public static void visualize(PMap<?, ?>... m) {
+        try {
+            toSVG("x", m);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         Browser.openInBrowser("x.svg");
     }
 
@@ -117,7 +120,7 @@ public class Visualizer {
         for (int i = 0; i < bits; i++) {
             if (i > 0 && i % uBit == 0)
                 sb.append('_');
-            sb.append((v & (1 << i)) > 0 ? '1' : '0');
+            sb.append((v & (1 << i)) != 0 ? '1' : '0');
         }
         return sb.toString();
     }
@@ -149,17 +152,23 @@ public class Visualizer {
         void toDot(String graphName, PrintWriter w) {
             w.println(String.format("digraph %s {", quote(graphName)));
 
+            // Horizontal ?
+//            w.println("graph [");
+//            w.println("rankdir = \"LR\"");
+//            w.println("];");
+
             // Root node
             MapNode root = findRoot();
 
             // Write root nodes
             edges.values().stream()
                     .filter(mn -> mn.d == 0)
+                    .distinct()
                     .forEach(n -> n.writeNode(w));
 
             // Order non-root nodes
             List<Node> children = edges.keySet().stream()
-                    .sorted(Comparator.comparingInt(a -> a.p))
+                    .sorted(Comparator.comparingLong(a -> Integer.toUnsignedLong(a.p)))
                     .collect(toList());
 
             // Write nodes
