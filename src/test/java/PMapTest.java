@@ -22,11 +22,24 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
+
 import org.junit.Test;
 import per.PMap;
+import per.PMapBuilder;
 import per.Visualizer;
 
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 public class PMapTest {
+
+    @Test
+    public void test() {
+        PMap<Object, Object> m = PMap.<Object, Object>empty()
+                .put(0, "zero")
+                ;
+        Visualizer.visualize(m);
+    }
 
     @Test
     public void primitives() {
@@ -84,6 +97,22 @@ public class PMapTest {
                 .put(0b01_00000_0__0000_0000__0_10000_00__000_00000, "01")
                 .put(0b11_00000_0__0000_0000__1_10000_00__000_00000, "11");
         Visualizer.visualize(m);
+    }
+
+    @Test
+    public void propertiesAndBuilding() {
+        Map<Object, Object> p = System.getProperties();
+        PMapBuilder<Object, Object> pmb = new PMapBuilder<>();
+        p.forEach(pmb::put);
+        PMap<Object, Object> m = pmb.build();
+        Visualizer.visualize(m);
+    }
+
+    @Test
+    public void buildingAndConfinement() {
+        PMapBuilder<Object, Object> pmb = new PMapBuilder<>();
+        CompletableFuture<Void> cf = CompletableFuture.runAsync(() -> pmb.put(0, 0));
+        cf.join();
     }
 
     static final class IntKey {
