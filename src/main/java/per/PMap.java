@@ -27,6 +27,7 @@ package per;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class PMap<K, V> {
     static final Object SUB_LAYER_NODE = new Object();
@@ -81,6 +82,21 @@ public class PMap<K, V> {
     @SuppressWarnings("unchecked")
     public static <K, V> PMap<K, V> empty() {
         return (PMap<K, V>) EMPTY_PMAP;
+    }
+
+    public static <K, V> PMap<K, V> of(Consumer<PMapBuilder<K, V>> c) {
+        PMapBuilder<K, V> b = new PMapBuilder<>();
+        PMap<K, V> m = null;
+        try {
+            c.accept(b);
+            m = b.build();
+        } finally {
+            if (m == null) {
+                // Exception occurred
+                b.clear();
+            }
+        }
+        return m;
     }
 
     public static <K, V> PMap<K, V> of(K k, V v) {

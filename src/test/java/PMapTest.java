@@ -23,6 +23,7 @@
  * questions.
  */
 
+import org.junit.Assert;
 import org.junit.Test;
 import per.PMap;
 import per.PMapBuilder;
@@ -30,14 +31,14 @@ import per.Visualizer;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 public class PMapTest {
 
     @Test
     public void test() {
         PMap<Object, Object> m = PMap.<Object, Object>empty()
-                .put(0, "zero")
-                ;
+                .put(0, "zero");
         Visualizer.visualize(m);
     }
 
@@ -53,6 +54,23 @@ public class PMapTest {
                 .put("S", Short.class)
                 .put("V", Void.class)
                 .put("Z", Boolean.class);
+
+        Visualizer.visualize(m);
+    }
+
+    @Test
+    public void primitivesWithBuilder() {
+        PMap<String, Class<?>> m = PMap.of(
+                b -> b.put("B", Byte.class)
+                        .put("D", Double.class)
+                        .put("F", Float.class)
+                        .put("I", Integer.class)
+                        .put("J", Long.class)
+                        .put("L", Object.class)
+                        .put("S", Short.class)
+                        .put("V", Void.class)
+                        .put("Z", Boolean.class)
+        );
 
         Visualizer.visualize(m);
     }
@@ -102,17 +120,37 @@ public class PMapTest {
     @Test
     public void propertiesAndBuilding() {
         Map<Object, Object> p = System.getProperties();
-        PMapBuilder<Object, Object> pmb = new PMapBuilder<>();
-        p.forEach(pmb::put);
-        PMap<Object, Object> m = pmb.build();
+        PMap<Object, Object> m = PMap.of(b -> p.forEach(b::put));
         Visualizer.visualize(m);
     }
 
     @Test
     public void buildingAndConfinement() {
-        PMapBuilder<Object, Object> pmb = new PMapBuilder<>();
-        CompletableFuture<Void> cf = CompletableFuture.runAsync(() -> pmb.put(0, 0));
-        cf.join();
+        // Outside scope of closure
+        {
+            PMapBuilder<Object, Object>[] pa = new PMapBuilder[1];
+            PMap<Object, Object> m = PMap.of(b -> pa[0] = b);
+
+            try {
+                pa[0].put(0, 0);
+                throw new AssertionError();
+            }
+            catch (IllegalStateException e) {
+            }
+        }
+
+        // Outside scope of thread
+        try {
+            PMap<Object, Object> m = PMap.of(b -> {
+                CompletableFuture<Void> cf = CompletableFuture.runAsync(() -> b.put(0, 0));
+                cf.join();
+            });
+
+            throw new AssertionError();
+        }
+        catch (CompletionException e) {
+            Assert.assertEquals(IllegalStateException.class, e.getCause().getClass());
+        }
     }
 
     static final class IntKey {

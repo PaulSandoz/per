@@ -35,13 +35,12 @@ import java.util.Arrays;
 // the builder.
 public class PMapBuilder<K, V> {
     static Unsafe U = getUnsafe();
-    final long tId;
+
+    final Thread t;
     MutableHAMT<K, V> m;
 
-    public PMapBuilder() {
-        // Note thread ids are not unique, the id might be reused
-        // when this thread dies and a new thread is created
-        tId = Thread.currentThread().getId();
+    PMapBuilder() {
+        t = Thread.currentThread();
         m = new MutableHAMT<>();
     }
 
@@ -93,24 +92,22 @@ public class PMapBuilder<K, V> {
         // Guard a put, only if the builder has not been built and
         // the current thread is the same as the thread that created
         // the builder
-        if (m == null || tId != Thread.currentThread().getId())
+        if (m == null || t != Thread.currentThread())
             throw new IllegalStateException();
 
         m.put(k, v, PMap.hash(k), 0);
         return this;
     }
 
-    public PMap<K, V> build() {
-        // Guard a put, only if the builder has not been built and
-        // the current thread is the same as the thread that created
-        // the builder
-        if (m == null || tId != Thread.currentThread().getId())
-            throw new IllegalStateException();
-
+    PMap<K, V> build() {
         MutableHAMT<K, V> _m = m;
         // Transition the builder to the built state
-        m = null;
+        clear();
         return toPMap(_m);
+    }
+
+    void clear() {
+        m = null;
     }
 
     static final class MutableHAMT<K, V> {
